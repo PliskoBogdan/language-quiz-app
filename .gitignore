@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Local dev data file created by the browser's File System Access API -
+# your actual cards live wherever you picked, this is just leftover from
+# testing in this project folder.
+cards-data.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

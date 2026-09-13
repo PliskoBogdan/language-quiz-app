@@ -16,9 +16,15 @@ const switchError = ref('')
 const storageMode = ref(storage.getMode())
 const connectedFileName = ref(storage.getConnectedFileName())
 
-function exportBackup() {
-  store.exportBackup()
-  status.value = 'Файл резервной копии сохранён.'
+async function exportBackup() {
+  try {
+    await store.exportBackup()
+    status.value = 'Файл резервной копии сохранён.'
+  } catch (err) {
+    if (err?.message !== 'Share canceled') {
+      status.value = 'Не удалось экспортировать: ' + (err?.message || err)
+    }
+  }
 }
 
 function pickImportFile() {
@@ -79,7 +85,14 @@ const switchToExistingFile = () => switchFile(storage.openExistingFile)
       <div class="card-surface section">
         <h3>Хранилище данных</h3>
 
-        <template v-if="storageMode === 'file'">
+        <template v-if="storageMode === 'native'">
+          <p class="hint-text">
+            Данные хранятся в файле «{{ connectedFileName }}» внутри приложения на этом устройстве
+            и сохраняются в него сразу при любом изменении.
+          </p>
+        </template>
+
+        <template v-else-if="storageMode === 'file'">
           <p class="hint-text">
             Данные хранятся в файле «{{ connectedFileName }}» на этом компьютере и сохраняются в
             него сразу при любом изменении.

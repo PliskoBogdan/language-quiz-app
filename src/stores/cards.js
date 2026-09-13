@@ -88,7 +88,7 @@ export const useCardsStore = defineStore('cards', {
     },
 
     async exportBackup() {
-      exportStateToFile({ categories: this.categories, cards: this.cards })
+      await exportStateToFile({ categories: this.categories, cards: this.cards })
     },
 
     async importBackup(file) {

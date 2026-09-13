@@ -1,30 +1,35 @@
 // Persistence layer.
 //
-// Primary storage: a real JSON file on disk, via the File System Access
-// API (Chrome/Edge - showSaveFilePicker/showOpenFilePicker). The user picks
-// or creates the file once; after that the app reads/writes it directly, no
-// dialogs. Only the file *handle* (a small permission token, not the data)
-// is cached in IndexedDB so the app can reconnect on the next visit -
-// see fileHandleStore.js.
+// Three storage backends, picked automatically at startup:
 //
-// Fallback storage: browsers without the API (Safari, Firefox) get the
-// whole state stored as one JSON blob in IndexedDB instead. Functionally
-// equivalent, just not a file the user can see/move themselves.
+// 1. Native (iOS/Android via Capacitor): a real JSON file in the app's
+//    sandboxed Documents directory, via @capacitor/filesystem. No dialogs,
+//    no permissions to ask for - the app already owns that folder outright.
+// 2. File System Access API (Chrome/Edge on desktop): the user picks or
+//    creates a real .json file on disk once; after that the app reads/
+//    writes it directly. Only the file *handle* (a permission token, not
+//    the data) is cached in IndexedDB so the app can reconnect next time -
+//    see fileHandleStore.js.
+// 3. IndexedDB fallback (Safari/Firefox on desktop): the whole state as one
+//    JSON blob in the browser's database. Functionally equivalent, just not
+//    a file the user can see/move themselves.
 //
-// Either way, Settings also offers a manual "download/upload .json" backup
-// (exportStateToFile/readStateFromFile below) - useful as an extra copy
-// regardless of which primary mode is active.
-//
-// MOBILE NOTE: once this app is wrapped with Capacitor for iOS/Android,
-// swap this module for one backed by @capacitor/filesystem (Documents
-// directory) - that's a real JSON file with no picker/permission dance,
-// since the app owns its sandbox outright.
+// Whichever backend is active, Settings also offers a manual "export/
+// import .json" backup (exportStateToFile/readStateFromFile below) - useful
+// as an extra copy you can move to iCloud Drive/Google Drive by hand.
 
+import { Capacitor } from '@capacitor/core'
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'
+import { Share } from '@capacitor/share'
 import { get as idbGet, set as idbSet } from 'idb-keyval'
 import { getSavedHandle, saveHandle, clearSavedHandle } from './fileHandleStore'
 
 const IDB_KEY = 'english-cards:v1'
 const FILE_NAME = 'cards-data.json'
+
+function isNative() {
+  return Capacitor.isNativePlatform()
+}
 
 export const emptyState = () => ({ categories: [], cards: [] })
 
@@ -52,9 +57,34 @@ export function isFileSystemSupported() {
 }
 
 // ---- module-level (non-reactive) connection state ----
-let mode = 'idb' // 'file' | 'idb'
+let mode = 'idb' // 'native' | 'file' | 'idb'
 let activeHandle = null // connected FileSystemFileHandle, once permission is granted
 let pendingHandle = null // handle awaiting a user gesture to (re)grant permission
+
+async function readNativeState() {
+  try {
+    const { data: text } = await Filesystem.readFile({
+      path: FILE_NAME,
+      directory: Directory.Documents,
+      encoding: Encoding.UTF8,
+    })
+    return normalize(JSON.parse(text))
+  } catch {
+    // File doesn't exist yet (first launch) - create it.
+    const data = emptyState()
+    await writeNativeState(data)
+    return data
+  }
+}
+
+async function writeNativeState(state) {
+  await Filesystem.writeFile({
+    path: FILE_NAME,
+    directory: Directory.Documents,
+    encoding: Encoding.UTF8,
+    data: JSON.stringify(toPayload(state), null, 2),
+  })
+}
 
 async function readFileHandle(handle) {
   const file = await handle.getFile()
@@ -82,6 +112,11 @@ async function saveIdbState(state) {
 // go (file connected + permission already granted, or using the IndexedDB
 // fallback), or the user needs to take an action first.
 export async function detectStorage() {
+  if (isNative()) {
+    mode = 'native'
+    return { status: 'ready', mode: 'native', data: await readNativeState() }
+  }
+
   if (!isFileSystemSupported()) {
     mode = 'idb'
     return { status: 'ready', mode: 'idb', data: await loadIdbState() }
@@ -170,12 +205,15 @@ export function getMode() {
 }
 
 export function getConnectedFileName() {
+  if (mode === 'native') return FILE_NAME
   return activeHandle?.name || null
 }
 
 export async function saveState(state) {
   try {
-    if (mode === 'file' && activeHandle) {
+    if (mode === 'native') {
+      await writeNativeState(state)
+    } else if (mode === 'file' && activeHandle) {
       await writeFileHandle(activeHandle, state)
     } else {
       await saveIdbState(state)
@@ -187,13 +225,31 @@ export async function saveState(state) {
 
 // ---- manual backup helpers (available regardless of storage mode) ----
 
-export function exportStateToFile(state) {
-  const blob = new Blob([JSON.stringify(toPayload(state), null, 2)], { type: 'application/json' })
+export async function exportStateToFile(state) {
+  const stamp = new Date().toISOString().slice(0, 10)
+  const fileName = `cards-backup-${stamp}.json`
+  const json = JSON.stringify(toPayload(state), null, 2)
+
+  if (isNative()) {
+    // No filesystem "Save As" dialog on iOS/Android - write the backup to
+    // a temp spot and hand it to the native share sheet (AirDrop, Files,
+    // Mail, etc.) so the user can put it wherever they like.
+    await Filesystem.writeFile({
+      path: fileName,
+      directory: Directory.Cache,
+      encoding: Encoding.UTF8,
+      data: json,
+    })
+    const { uri } = await Filesystem.getUri({ path: fileName, directory: Directory.Cache })
+    await Share.share({ title: fileName, url: uri })
+    return
+  }
+
+  const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  const stamp = new Date().toISOString().slice(0, 10)
   a.href = url
-  a.download = `cards-backup-${stamp}.json`
+  a.download = fileName
   document.body.appendChild(a)
   a.click()
   a.remove()

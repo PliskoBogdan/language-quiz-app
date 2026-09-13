@@ -25,6 +25,9 @@ export const ANSWER_LABELS = [
 // improving or slipping instead of being stuck by very old history.
 const RECENT_WINDOW = 8
 
+// The card only remembers its last 20 answers - older ones are dropped.
+const MAX_HISTORY = 20
+
 function uid() {
   return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
@@ -62,7 +65,7 @@ export function computeGrade(history) {
 
 export function applyAnswer(card, answerKey) {
   const points = ANSWER_POINTS[answerKey]
-  const history = [...card.history, { points, at: new Date().toISOString() }].slice(-30)
+  const history = [...card.history, { points, at: new Date().toISOString() }].slice(-MAX_HISTORY)
   return {
     ...card,
     history,

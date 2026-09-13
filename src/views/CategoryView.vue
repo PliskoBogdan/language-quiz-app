@@ -120,6 +120,13 @@ async function deleteCategory() {
       @cancel="showDeleteCategory = false"
     />
   </div>
+
+  <div v-else class="empty-state">
+    Категория не найдена.<br />
+    <button class="btn btn-primary" style="margin-top: 14px" @click="router.push({ name: 'home' })">
+      На главную
+    </button>
+  </div>
 </template>
 
 <style scoped>

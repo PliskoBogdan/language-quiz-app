@@ -11,13 +11,19 @@ const busy = ref(false)
 
 async function check() {
   status.value = 'checking'
-  const result = await storage.detectStorage()
-  if (result.status === 'ready') {
-    store.hydrate(result.data)
-    status.value = 'ready'
-  } else {
-    status.value = result.status
-    fileName.value = result.fileName || ''
+  try {
+    const result = await storage.detectStorage()
+    if (result.status === 'ready') {
+      store.hydrate(result.data)
+      status.value = 'ready'
+    } else {
+      status.value = result.status
+      fileName.value = result.fileName || ''
+    }
+  } catch (err) {
+    console.error('Storage detection failed', err)
+    errorMessage.value = err?.message || 'Не удалось проверить хранилище'
+    status.value = 'need-setup'
   }
 }
 
@@ -32,6 +38,7 @@ async function run(action) {
     status.value = 'ready'
   } catch (err) {
     if (err?.name !== 'AbortError') {
+      console.error('Storage action failed', err)
       errorMessage.value = err?.message || 'Не удалось получить доступ к файлу'
     }
   } finally {

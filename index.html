@@ -12,6 +12,32 @@
   </head>
   <body>
     <div id="app"></div>
+    <div id="fatal-error" hidden>
+      <strong>Что-то сломалось</strong>
+      <pre id="fatal-error-message"></pre>
+    </div>
+    <style>
+      #fatal-error {
+        position: fixed;
+        inset: 0;
+        background: #fff5f5;
+        color: #7a1a24;
+        padding: 20px;
+        font-family: monospace;
+        font-size: 13px;
+        overflow: auto;
+        z-index: 9999;
+      }
+      #fatal-error strong {
+        display: block;
+        font-size: 16px;
+        margin-bottom: 10px;
+      }
+      #fatal-error pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+    </style>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

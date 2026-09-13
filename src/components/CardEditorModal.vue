@@ -1,6 +1,7 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { fileToCompressedDataUrl } from '../services/image'
+import FlipCard from './FlipCard.vue'
 
 const props = defineProps({
   card: { type: Object, default: null }, // null = creating a new card
@@ -12,6 +13,16 @@ const backText = ref(props.card?.back?.text || '')
 const backImage = ref(props.card?.back?.image || null)
 const imageBusy = ref(false)
 const fileInput = ref(null)
+const showPreview = ref(false)
+const previewFlipped = ref(false)
+
+const previewBack = computed(() => ({ text: backText.value, image: backImage.value }))
+const canPreview = computed(() => front.value.trim() && (backText.value.trim() || backImage.value))
+
+function openPreview() {
+  previewFlipped.value = false
+  showPreview.value = true
+}
 
 async function onFileChange(e) {
   const file = e.target.files?.[0]
@@ -41,7 +52,22 @@ function submit() {
 
 <template>
   <div class="modal-backdrop" @click.self="emit('cancel')">
-    <div class="modal-sheet">
+    <div v-if="showPreview" class="modal-sheet">
+      <h3 class="editor-title">Превью карточки</h3>
+
+      <FlipCard
+        :front="front"
+        :back="previewBack"
+        :flipped="previewFlipped"
+        @toggle="previewFlipped = !previewFlipped"
+      />
+
+      <div class="editor-actions">
+        <button class="btn btn-block" @click="showPreview = false">← Назад к редактированию</button>
+      </div>
+    </div>
+
+    <div v-else class="modal-sheet">
       <h3 class="editor-title">{{ card ? 'Редактировать карточку' : 'Новая карточка' }}</h3>
 
       <div class="form-field">
@@ -74,6 +100,7 @@ function submit() {
 
       <div class="editor-actions">
         <button class="btn" @click="emit('cancel')">Отмена</button>
+        <button class="btn" :disabled="!canPreview" @click="openPreview">👁 Превью</button>
         <button
           class="btn btn-primary"
           :disabled="!front.trim() || (!backText.trim() && !backImage)"

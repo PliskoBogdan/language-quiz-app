@@ -14,7 +14,7 @@ const emit = defineEmits(['toggle'])
         <span class="front-text">{{ front }}</span>
         <span class="hint">нажмите, чтобы перевернуть</span>
       </div>
-      <div class="flip-face flip-back">
+      <div class="flip-face flip-back" :class="{ 'has-image': back.image }">
         <img v-if="back.image" :src="back.image" class="back-image" alt="" />
         <span v-if="back.text" class="back-text">{{ back.text }}</span>
       </div>
@@ -60,6 +60,7 @@ const emit = defineEmits(['toggle'])
   background: var(--accent);
   color: white;
   transform: rotateY(180deg);
+  overflow: hidden;
 }
 .front-text {
   font-size: 30px;
@@ -75,10 +76,24 @@ const emit = defineEmits(['toggle'])
   font-weight: 700;
   word-break: break-word;
 }
+/* The image *is* the translation, not a separate thumbnail next to it -
+   it fills the whole card regardless of its original size/aspect ratio. */
+.flip-back.has-image {
+  padding: 0;
+}
 .back-image {
-  max-width: 100%;
-  max-height: 180px;
-  border-radius: 14px;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+}
+.has-image .back-text {
+  position: relative;
+  z-index: 1;
+  align-self: stretch;
+  margin-top: auto;
+  padding: 28px 20px 20px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0));
 }
 </style>

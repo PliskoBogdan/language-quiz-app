@@ -1,0 +1,9 @@
+{
+	"appId": "com.bohdan.englishcards",
+	"appName": "Cards",
+	"webDir": "dist",
+	"packageClassList": [
+		"FilesystemPlugin",
+		"SharePlugin"
+	]
+}
